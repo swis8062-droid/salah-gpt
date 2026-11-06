@@ -14,7 +14,7 @@ import java.util.List;
 public class SalahModel {
 
     private static final int SEQ_LEN = 256;
-    private static final int VOCAB = 279;
+    private static final int VOCAB = 274;
     private static final int MAX_NEW_TOKENS = 200;
 
     private final Interpreter interpreter;
