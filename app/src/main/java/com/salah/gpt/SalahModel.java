@@ -2,7 +2,7 @@ package com.salah.gpt;
 
 import android.content.Context;
 
-import com.google.ai.edge.litert.Interpreter;
+import org.tensorflow.lite.Interpreter;
 
 import java.io.File;
 import java.io.FileOutputStream;
