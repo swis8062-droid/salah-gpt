@@ -3,11 +3,11 @@ plugins {
 }
 
 android {
-    namespace 'com.saah.gpt'
+    namespace 'com.salah.gpt'
     compileSdk 34
 
     defaultConfig {
-        applicationId 'com.slah.gpt'
+        applicationId 'com.salah.gpt'
         minSdk 24
         targetSdk 34
         versionCode 1
