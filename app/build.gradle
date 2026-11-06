@@ -1,0 +1,35 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.salah.gpt'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.salah.gpt'
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+
+        ndk {
+            // جهازك Galaxy A10s معالجه ARM 32-bit
+            abiFilters 'armeabi-v7a'
+        }
+    }
+
+    buildTypes {
+        debug {
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+}
