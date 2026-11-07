@@ -10,20 +10,32 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 public class SalahModel {
 
     private static final int SEQ_LEN = 256;
     private static final int VOCAB = 274;
-    private static final int MAX_NEW_TOKENS = 200;
+    private static final int MAX_NEW_TOKENS = 60;
+    private static final int NUM_THREADS = 4;
+
+    // إعدادات الاختيار: تقدر تبدلهم باش تجرب
+    private static final float TEMPERATURE = 0.8f;
+    private static final int TOP_K = 20;
+    private static final float REPETITION_PENALTY = 1.3f;
+    private static final int RECENT_WINDOW = 30;
 
     private final Interpreter interpreter;
     private final SalahTokenizer tokenizer;
+    private final Random random = new Random();
 
     public SalahModel(Context context) throws Exception {
         tokenizer = new SalahTokenizer(context);
         File modelFile = copyAssetToCache(context, "salah_gpt_v2.tflite");
-        interpreter = new Interpreter(modelFile);
+
+        Interpreter.Options options = new Interpreter.Options();
+        options.setNumThreads(NUM_THREADS);
+        interpreter = new Interpreter(modelFile, options);
     }
 
     // نسخ الموديل من assets لمجلد الكاش، باش Interpreter يقرا ملف حقيقي
@@ -70,7 +82,10 @@ public class SalahModel {
 
             // النموذج كيتوقع الرمز الجاي من الموضع الأخير الحقيقي
             int pos = ids.size() - 1;
-            int next = argmax(output[0][pos]);
+            int recentFrom = Math.max(0, generated.size() - RECENT_WINDOW);
+            List<Integer> recent = generated.subList(recentFrom, generated.size());
+
+            int next = sample(output[0][pos], recent);
 
             if (next == SalahTokenizer.EOS) break;
 
@@ -81,26 +96,64 @@ public class SalahModel {
         return tokenizer.decode(generated);
     }
 
-    // نختار أعلى قيمة، ونتجاهل الرموز الخاصة اللي ما خاصهاش تظهر في الجواب
-    private int argmax(float[] logits) {
-        int best = -1;
-        float bestVal = -Float.MAX_VALUE;
-        for (int i = 0; i < logits.length; i++) {
-            if (i == SalahTokenizer.PAD
-                    || i == SalahTokenizer.UNK
-                    || i == SalahTokenizer.USER
-                    || i == SalahTokenizer.ASSISTANT) {
-                continue;
-            }
-            if (logits[i] > bestVal) {
-                bestVal = logits[i];
-                best = i;
+    // اختيار عشوائي من أحسن TOP_K رمز، مع temperature وrepetition penalty
+    private int sample(float[] logits, List<Integer> recent) {
+        float[] l = logits.clone();
+
+        // تقليل احتمال الرموز اللي ظهرت مؤخراً
+        for (int tok : recent) {
+            if (tok < 0 || tok >= VOCAB) continue;
+            if (l[tok] > 0) {
+                l[tok] /= REPETITION_PENALTY;
+            } else {
+                l[tok] *= REPETITION_PENALTY;
             }
         }
-        return best;
+
+        // منع الرموز الخاصة من الظهور في الجواب
+        l[SalahTokenizer.PAD] = -Float.MAX_VALUE;
+        l[SalahTokenizer.UNK] = -Float.MAX_VALUE;
+        l[SalahTokenizer.USER] = -Float.MAX_VALUE;
+        l[SalahTokenizer.ASSISTANT] = -Float.MAX_VALUE;
+
+        // نجيبو أحسن TOP_K رمز
+        boolean[] taken = new boolean[VOCAB];
+        int[] topIdx = new int[TOP_K];
+        int n = 0;
+        for (int k = 0; k < TOP_K; k++) {
+            int best = -1;
+            float bestVal = -Float.MAX_VALUE;
+            for (int i = 0; i < VOCAB; i++) {
+                if (!taken[i] && l[i] > bestVal) {
+                    bestVal = l[i];
+                    best = i;
+                }
+            }
+            if (best < 0) break;
+            taken[best] = true;
+            topIdx[n++] = best;
+        }
+
+        // softmax مع temperature على الرموز المختارة
+        double max = l[topIdx[0]];
+        double[] p = new double[n];
+        double sum = 0;
+        for (int i = 0; i < n; i++) {
+            p[i] = Math.exp((l[topIdx[i]] - max) / TEMPERATURE);
+            sum += p[i];
+        }
+
+        // اختيار عشوائي حسب الاحتمالات
+        double r = random.nextDouble() * sum;
+        double acc = 0;
+        for (int i = 0; i < n; i++) {
+            acc += p[i];
+            if (acc >= r) return topIdx[i];
+        }
+        return topIdx[n - 1];
     }
 
     public void close() {
         interpreter.close();
     }
-                                      }
+                }
