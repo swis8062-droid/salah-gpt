@@ -20,9 +20,9 @@ public class SalahModel {
     private static final int NUM_THREADS = 4;
 
     // إعدادات الاختيار: تقدر تبدلهم باش تجرب
-    private static final float TEMPERATURE = 0.8f;
-    private static final int TOP_K = 20;
-    private static final float REPETITION_PENALTY = 1.3f;
+    private static final float TEMPERATURE = 0.5f;
+    private static final int TOP_K = 5;
+    private static final float REPETITION_PENALTY = 1.2f;
     private static final int RECENT_WINDOW = 30;
 
     private final Interpreter interpreter;
